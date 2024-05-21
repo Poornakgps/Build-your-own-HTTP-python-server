@@ -15,13 +15,20 @@ def main():
 
 
     if path[1] == "/":
-        conn.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
+        
+        resp = "HTTP/1.1 200 OK\r\n\r\n"
+        conn.send(resp.encode())
         # conn.sendall(b"Hello, World!")
+    elif path[1].startswith("/echo"):
+        random_path = path[1][6:]
+        response = f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {len(random_path)}\r\n\r\n{random_path}\r\n"
+        conn.send(response.encode())
+        print(random_path)
     else:
         conn.sendall(b"HTTP/1.1 404 Not Found\r\n\r\n")
         # conn.sendall(b"404 Not Found")
-    print(data)
-    print(path)
+    # print(data)
+    # print(path)
     
     # print("Connection from", addr) # Connection from ('127.0.0.1', 34826)
     
