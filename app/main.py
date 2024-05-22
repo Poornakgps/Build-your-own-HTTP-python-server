@@ -115,4 +115,7 @@ def build_response(status: str, headers: str, body: bytes = b"") -> bytes:
 
 # Entry point of the script
 if __name__ == "__main__":
+    if not directory:
+        print("Error: The --directory argument is required.")
+        exit(1)
     main()
