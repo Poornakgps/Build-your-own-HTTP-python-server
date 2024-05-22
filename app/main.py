@@ -1,58 +1,100 @@
 import socket
 import threading
-from sys import argv
-def getResponseTxt(method, path, response_body):
-    if path == "/":
-        return "HTTP/1.1 200 OK\r\n\r\n"
-    elif "/echo" in path:
-        content = path.split("/")[-1]
-        content_length = len(path.split("/")[-1])
-        return f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {content_length}\r\n\r\n{content}"
-    elif "/user-agent" in path:
-        content_length = len(response_body)
-        return f"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: {content_length}\r\n\r\n{response_body}"
-    elif "/files" in path:
-        f_name = path.split("/")[-1]
-        try:
-            with open(argv[2] + f_name) as f:
-                content = f.read()
-                cont_length = len(content)
-                return (
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: "
-                    + str(cont_length)
-                    + "\r\n\r\n"
-                    + content
+import os
+import sys
+STATUS_200 = "HTTP/1.1 200 OK\r\n"
+STATUS_201 = "HTTP/1.1 201 Created\r\n\r\n"
+STATUS_404 = "HTTP/1.1 404 Not Found\r\n\r\n"
+# Function that defines the behaviour for handling a single client connection
+def handle_connection(connection_socket, address):
+    # Extract URL path - request target
+    request_data = connection_socket.recv(4096).decode()
+    print(f"Received chunk:\n{request_data}")
+    # Parse the HTTP request
+    lines = request_data.split("\r\n")
+    print(lines)
+    headers = {}
+    for header in lines[1:]:
+        if header == "":
+            break
+        key, value = header.split(": ")
+        print(key, value)
+        headers[key] = value
+    start_line = lines[0]
+    method, request_target, http_version = start_line.split(" ")
+    print(request_data)
+    request_body = lines[-1]
+    if request_target == "/":
+        connection_socket.sendall(b"HTTP/1.1 200 OK\r\n\r\n")
+    elif request_target.startswith("/user-agent"):
+        response = (
+            f"{STATUS_200}"
+            "Content-Type: text/plain\r\n"
+            f"Content-Length: {len(headers.get('User-Agent'))}\r\n"
+            "\r\n"
+            f"{headers.get('User-Agent')}"
+        )
+        # HTTP response
+        connection_socket.sendall(response.encode())
+    elif request_target.startswith("/echo"):
+        endpoint = (request_target.split("/"))[-1]
+        response = (
+            f"{STATUS_200}"
+            "Content-Type: text/plain\r\n"
+            f"Content-Length: {len(endpoint)}\r\n"
+            "\r\n"
+            f"{endpoint}"
+        )
+        # HTTP response
+        connection_socket.sendall(response.encode())
+    elif request_target.startswith("/files") and method == "GET":
+        filename = (request_target.split("/"))[2]
+        print(filename)
+        directory = sys.argv[2]
+        path = "".join([directory, filename])
+        if os.path.exists(path):
+            with open(path, "r") as file:
+                content = file.read()
+                response = (
+                    f"{STATUS_200}"
+                    "Content-Type: application/octet-stream\r\n"
+                    f"Content-Length: {len(content)}\r\n"
+                    "\r\n"
+                    f"{content}"
                 )
-        except FileNotFoundError:
-            return "HTTP/1.1 404 Not Found\r\n\r\n"
+                # HTTP response
+                connection_socket.sendall(response.encode())
+        else:
+            connection_socket.sendall(STATUS_404.encode())
+    elif request_target.startswith("/files") and method == "POST":
+        filename = (request_target.split("/"))[2]
+        print(filename)
+        directory = sys.argv[2]
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        path = "".join([directory, filename])
+        with open(path, "w") as file:
+            file.write(request_body)
+        response = f"{STATUS_201}"
+        # HTTP response
+        connection_socket.sendall(response.encode())
     else:
-        return "HTTP/1.1 404 Not Found\r\n\r\n"
-def parseRequest(client):
-    lines = client.recv(4096).decode().split(" ")
-    # print(lines[-1].strip())
-    method = lines[0]
-    path = lines[1]
-    response_body = lines[-1].strip()
-    return method, path, response_body
-def sendResponse(client, text):
-    client.sendall(text.encode("UTF-8"))
+        # HTTP response
+        connection_socket.sendall(STATUS_404.encode())
+    connection_socket.close()
+# Main function that accepts incoming connections and create threadss
 def main():
     # You can use print statements as follows for debugging, they'll be visible when running tests.
     print("Logs from your program will appear here!")
-    # Uncomment this to pass the first stage
-    #
-    # server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
-    # server_socket.accept() # wait for client
-    server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
-    server_socket.listen()
-    # server_socket.accept()
+    # Create TCP server socket
+    server_socket = socket.create_server(("localhost", 4221))
+    # Accept different TCP connections and handle them in separate threads
     while True:
-        client, addr = server_socket.accept()
-        method, path, response_body = parseRequest(client)
-        print("remote", method, path, response_body)
-        response = getResponseTxt(method, path, response_body)
-        # print('response',response)
-        threading.Thread(target=sendResponse, args=(client, response)).start()
-    # client.close()
+        (connection_socket, address) = server_socket.accept()  # wait for client
+        print(f"Received connection from {address}")
+        connection_thread = threading.Thread(
+            target=handle_connection, args=(connection_socket, address)
+        )
+        connection_thread.start()
 if __name__ == "__main__":
     main()
