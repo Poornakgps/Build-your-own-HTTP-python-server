@@ -35,13 +35,16 @@ class Request:
 
 # Main function to start the server
 def main():
-    server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
-    print(f"Server started at localhost:4221 serving directory {directory}")
+    try:
+        server_socket = socket.create_server(("localhost", 4221), reuse_port=True)
+        print(f"Server started at localhost:4221 serving directory {directory}")
 
-    while True:
-        client_socket, client_address = server_socket.accept()  # Wait for client
-        print(f"Connection from {client_address}")
-        threading.Thread(target=request_handler, args=(client_socket,), daemon=True).start()
+        while True:
+            client_socket, client_address = server_socket.accept()  # Wait for client
+            print(f"Connection from {client_address}")
+            threading.Thread(target=request_handler, args=(client_socket,), daemon=True).start()
+    except Exception as e:
+        print(f"Error starting server: {e}")
 
 # Function to handle client requests
 def request_handler(client_socket):
