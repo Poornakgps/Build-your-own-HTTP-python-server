@@ -1,6 +1,8 @@
 # Uncomment this to pass the first stage
 import socket
 import re
+from sys import argv
+
 class Request(object):
     def __init__(self, data) -> None:
         data_str = data.decode()
@@ -48,18 +50,23 @@ def main():
                         arg = re_extract(req.path, r"/echo/(.*)")
                         # print("arg=%s" % arg)
                         resp = Response(200, arg)
-                    elif "files" in req.path:
-                        directory = sys.argv[2]
-                        filename = req.path[7:]
-                        try:
-                            with open(f"/{directory}/{filename}", "r") as f:
-                                body = f.read()
-                            response = f"{status_200}\r\nContent-Type: application/octet-stream\r\nContent-Length: {len(body)}\r\n\r\n{body}"
-                        except Exception as e:
-                            print(f"Error: Reading /{directory}/{filename} failed. Exception: {e}")
-                            response = f"{status_404}\r\n\r\n"
+
                     elif req.path == "/user-agent":
                         resp = Response(200, req.user_agent)
+                    elif "/files" in req.path:
+                        f_name = req.path.split("/")[-1]
+                        try:
+                            with open(argv[2] + f_name) as f:
+                                content = f.read()
+                                cont_length = len(content)
+                                return (
+                                    "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: "
+                                    + str(cont_length)
+                                    + "\r\n\r\n"
+                                    + content
+                                )
+                        except FileNotFoundError:
+                            return "HTTP/1.1 404 Not Found\r\n\r\n"
                     else:
                         raise Exception("not found")
                 except Exception:
