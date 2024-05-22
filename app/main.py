@@ -30,7 +30,7 @@ def main():
         # conn.sendall(b"404 Not Found")
     # print(data)
     print(path)
-    user_agent = path[5]
+    user_agent = path[-1]
     length = 0
     user_agent = user_agent.split("\r\n")
     length = len(user_agent[0])
